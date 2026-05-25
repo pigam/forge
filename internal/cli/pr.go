@@ -567,7 +567,7 @@ For same-repo PRs, the branch is fetched and checked out.`,
 				return fmt.Errorf("invalid PR number: %s", args[0])
 			}
 
-			forge, owner, repoName, _, err := resolve.Repo(flagRepo, flagForgeType)
+			forge, owner, repoName, domain, err := resolve.Repo(flagRepo, flagForgeType)
 			if err != nil {
 				return err
 			}
@@ -589,7 +589,7 @@ For same-repo PRs, the branch is fetched and checked out.`,
 			}
 
 			if pr.Head.Fork != nil {
-				return checkoutForkPR(ctx, pr, remoteRef, localBranch, flagRemoteName, flagDetach, flagForce)
+				return checkoutForkPR(ctx, domain, pr, remoteRef, localBranch, flagRemoteName, flagDetach, flagForce)
 			}
 
 			return checkoutSameRepoPR(ctx, remoteRef, localBranch, flagDetach, flagForce)
@@ -603,7 +603,7 @@ For same-repo PRs, the branch is fetched and checked out.`,
 	return cmd
 }
 
-func checkoutForkPR(ctx context.Context, pr *forges.PullRequest, remoteRef, localBranch, flagRemoteName string, detach, force bool) error {
+func checkoutForkPR(ctx context.Context, domain string, pr *forges.PullRequest, remoteRef, localBranch, flagRemoteName string, detach, force bool) error {
 	fork := pr.Head.Fork
 	remoteName := flagRemoteName
 	if remoteName == "" {
@@ -613,15 +613,12 @@ func checkoutForkPR(ctx context.Context, pr *forges.PullRequest, remoteRef, loca
 		remoteName = "fork"
 	}
 
-	cloneURL := fork.CloneURL
-	if cloneURL == "" {
-		cloneURL = fork.SSHURL
-	}
-	if cloneURL == "" {
+	url := cloneURL(domain, fork.CloneURL, fork.SSHURL)
+	if url == "" {
 		return fmt.Errorf("no clone URL available for fork repository")
 	}
 
-	remoteName, err := ensureRemote(ctx, remoteName, cloneURL)
+	remoteName, err := ensureRemote(ctx, remoteName, url)
 	if err != nil {
 		return err
 	}
@@ -638,7 +635,7 @@ func ensureRemote(ctx context.Context, preferredName, cloneURL string) (string, 
 	if err == nil {
 		for _, line := range strings.Split(string(remotes), "\n") {
 			fields := strings.Fields(line)
-			if len(fields) >= 2 && fields[1] == cloneURL {
+			if len(fields) >= 2 && remoteMatches(fields[1], cloneURL) {
 				return fields[0], nil
 			}
 		}
@@ -655,11 +652,29 @@ func ensureRemote(ctx context.Context, preferredName, cloneURL string) (string, 
 		return preferredName, nil
 	}
 
-	if strings.TrimSpace(string(existingURL)) == cloneURL {
+	if remoteMatches(strings.TrimSpace(string(existingURL)), cloneURL) {
 		return preferredName, nil
 	}
 
 	return "", fmt.Errorf("remote %q already exists with a different URL; use --remote-name to specify a different name", preferredName)
+}
+
+// remoteMatches reports whether existingURL points to the same repo as wantURL.
+// It first checks for an exact match, then falls back to comparing domain/owner/repo
+// so that SSH and HTTPS URLs for the same repository are treated as equivalent.
+func remoteMatches(existingURL, wantURL string) bool {
+	if existingURL == wantURL {
+		return true
+	}
+	wantDomain, wantOwner, wantRepo, err := forges.ParseRepoURL(wantURL)
+	if err != nil {
+		return false
+	}
+	domain, owner, repo, err := forges.ParseRepoURL(existingURL)
+	if err != nil {
+		return false
+	}
+	return domain == wantDomain && owner == wantOwner && repo == wantRepo
 }
 
 func gitCheckout(ctx context.Context, remote, remoteRef, localBranch string, detach, force bool) error {
