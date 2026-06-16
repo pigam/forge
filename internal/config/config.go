@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -30,7 +31,8 @@ type DefaultSection struct {
 
 type DomainSection struct {
 	Type        string // github, gitlab, gitea, forgejo, bitbucket
-	Token       string // only from user config, never .forge
+	Token       string // resolved token value; only from user config, never .forge
+	TokenExec   string // non-empty when token came from a "!cmd" reference (stores the raw value)
 	SSHHost     string // alternate host for git-over-ssh; the section name remains the API host
 	GitProtocol string // https or ssh; overrides default
 }
@@ -92,6 +94,20 @@ func parseGitProtocol(v string) (string, error) {
 	default:
 		return "", fmt.Errorf("invalid git_protocol %q: must be \"https\" or \"ssh\"", v)
 	}
+}
+
+// execValue runs cmd via sh -c and returns its trimmed stdout.
+// Shell features (pipes, quotes, substitutions) are supported.
+func execValue(cmd string) (string, error) {
+	cmd = strings.TrimSpace(cmd)
+	if cmd == "" {
+		return "", fmt.Errorf("empty command")
+	}
+	out, err := exec.Command("sh", "-c", cmd).Output()
+	if err != nil {
+		return "", fmt.Errorf("%q: %w", cmd, err)
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 // ResetCache clears the cached config. Only useful in tests.
@@ -176,7 +192,16 @@ func loadFile(cfg *Config, path string, allowTokens bool) error {
 		}
 		if allowTokens {
 			if v, ok := kv["token"]; ok {
-				ds.Token = v
+				if strings.HasPrefix(v, "!") {
+					resolved, err := execValue(v[1:])
+					if err != nil {
+						return fmt.Errorf("%s: [%s] token command: %w", path, name, err)
+					}
+					ds.Token = resolved
+					ds.TokenExec = v
+				} else {
+					ds.Token = v
+				}
 			}
 		}
 		cfg.Domains[name] = ds

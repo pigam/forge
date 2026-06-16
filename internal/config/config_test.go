@@ -483,6 +483,101 @@ token = old_token
 	}
 }
 
+func TestLoadFileTokenCommand(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config")
+	_ = os.WriteFile(path, []byte(`[github.com]
+token = !echo mytoken
+`), 0600)
+
+	cfg := &Config{Domains: make(map[string]DomainSection)}
+	if err := loadFile(cfg, path, true); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	ds := cfg.Domains["github.com"]
+	if ds.Token != "mytoken" {
+		t.Errorf("expected resolved token %q, got %q", "mytoken", ds.Token)
+	}
+	if ds.TokenExec != "!echo mytoken" {
+		t.Errorf("expected TokenExec=%q, got %q", "!echo mytoken", ds.TokenExec)
+	}
+}
+
+func TestLoadFileTokenCommandFails(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config")
+	_ = os.WriteFile(path, []byte(`[github.com]
+token = !false
+`), 0600)
+
+	cfg := &Config{Domains: make(map[string]DomainSection)}
+	err := loadFile(cfg, path, true)
+	if err == nil {
+		t.Fatal("expected error from failing command, got nil")
+	}
+	if !strings.Contains(err.Error(), "token command") {
+		t.Errorf("expected error to mention token command, got: %v", err)
+	}
+}
+
+func TestLoadFileTokenCommandMissingBinary(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config")
+	_ = os.WriteFile(path, []byte(`[github.com]
+token = !no-such-binary-xyz
+`), 0600)
+
+	cfg := &Config{Domains: make(map[string]DomainSection)}
+	err := loadFile(cfg, path, true)
+	if err == nil {
+		t.Fatal("expected error for missing binary, got nil")
+	}
+}
+
+func TestLoadFileTokenCommandNotExecutedInProjectConfig(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".forge")
+	_ = os.WriteFile(path, []byte(`[github.com]
+token = !echo secret
+`), 0644)
+
+	cfg := &Config{Domains: make(map[string]DomainSection)}
+	// allowTokens=false: command must not be executed, token must stay empty
+	if err := loadFile(cfg, path, false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	ds := cfg.Domains["github.com"]
+	if ds.Token != "" {
+		t.Errorf("project config should not resolve token commands, got %q", ds.Token)
+	}
+	if ds.TokenExec != "" {
+		t.Errorf("project config should not set TokenExec, got %q", ds.TokenExec)
+	}
+}
+
+func TestLoadFileLiteralTokenUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config")
+	_ = os.WriteFile(path, []byte(`[github.com]
+token = ghp_literal
+`), 0600)
+
+	cfg := &Config{Domains: make(map[string]DomainSection)}
+	if err := loadFile(cfg, path, true); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	ds := cfg.Domains["github.com"]
+	if ds.Token != "ghp_literal" {
+		t.Errorf("expected literal token, got %q", ds.Token)
+	}
+	if ds.TokenExec != "" {
+		t.Errorf("expected empty TokenExec for literal token, got %q", ds.TokenExec)
+	}
+}
+
 func TestGitProtocolFor(t *testing.T) {
 	ResetCache()
 	defer ResetCache()

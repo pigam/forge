@@ -101,7 +101,6 @@ func TestAuthStatus(t *testing.T) {
 	config.ResetCache()
 	defer config.ResetCache()
 
-	// Write a config with a domain
 	cfgDir := filepath.Join(dir, "forge")
 	_ = os.MkdirAll(cfgDir, 0700)
 	_ = os.WriteFile(filepath.Join(cfgDir, "config"), []byte(`[gitea.example.com]
@@ -114,8 +113,95 @@ token = some_token
 	rootCmd.SetErr(&buf)
 	rootCmd.SetArgs([]string{"auth", "status"})
 
-	err := rootCmd.Execute()
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "gitea.example.com") {
+		t.Errorf("expected domain in output, got: %s", out)
+	}
+	if !strings.Contains(out, "token from config") {
+		t.Errorf("expected token source in output, got: %s", out)
+	}
+}
+
+func TestAuthStatusWithTokenCmd(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	config.ResetCache()
+	defer config.ResetCache()
+
+	cfgDir := filepath.Join(dir, "forge")
+	_ = os.MkdirAll(cfgDir, 0700)
+	_ = os.WriteFile(filepath.Join(cfgDir, "config"), []byte(`[gitlab.example.com]
+type = gitlab
+token = !echo secret
+`), 0600)
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetArgs([]string{"auth", "status"})
+
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "cmd: !echo secret") {
+		t.Errorf("expected command source in output, got: %s", out)
+	}
+}
+
+func TestReadOneByte(t *testing.T) {
+	b, err := readOneByte(bytes.NewReader([]byte{'x'}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if b != 'x' {
+		t.Errorf("expected 'x', got %q", b)
+	}
+}
+
+func TestReadCommandInteractive(t *testing.T) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	origStdin := os.Stdin
+	os.Stdin = r
+	defer func() { os.Stdin = origStdin; _ = r.Close() }()
+
+	_, _ = w.WriteString("rbw get github-token\n")
+	_ = w.Close()
+
+	result, err := readCommandInteractive("github.com")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != "!rbw get github-token" {
+		t.Errorf("expected %q, got %q", "!rbw get github-token", result)
+	}
+}
+
+func TestReadCommandInteractiveEmpty(t *testing.T) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	origStdin := os.Stdin
+	os.Stdin = r
+	defer func() { os.Stdin = origStdin; _ = r.Close() }()
+
+	_, _ = w.WriteString("\n")
+	_ = w.Close()
+
+	_, err = readCommandInteractive("github.com")
+	if err == nil {
+		t.Fatal("expected error for empty command")
+	}
+	if !strings.Contains(err.Error(), "cannot be empty") {
+		t.Errorf("expected empty command error, got: %v", err)
 	}
 }
