@@ -44,6 +44,15 @@ forge auth login --domain github.com --token ghp_abc123
 forge auth login --domain gitea.example.com --token abc123 --type gitea
 ```
 
+When prompted for a token interactively, press **Ctrl+E** as the first key
+to enter a command instead. The command's output will be used as the token
+at runtime:
+
+```
+Token for github.com (Ctrl+E first for command): 
+Command for token (e.g. rbw get github.com): rbw get github-token
+```
+
 Check what's configured with `forge auth status`.
 
 Tokens are resolved in this order: CLI flags, environment variables (`FORGE_TOKEN`, `GITHUB_TOKEN`/`GH_TOKEN`, `GITLAB_TOKEN`, `FORGEJO_TOKEN`/`GITEA_TOKEN`, `BITBUCKET_TOKEN`), then the config file at `~/.config/forge/config`. The target host is inferred from the current directory's git remote; use `--host` or `FORGE_HOST` to override it (for example `forge --host gitea.com repo list someone`).
@@ -65,6 +74,25 @@ token = ghp_abc123
 type = gitea
 token = abc123
 ```
+
+Token values can be replaced with a shell command prefixed by `!`. The command
+is executed each time forge needs the token and its stdout is used as the value.
+This lets you fetch secrets from a password manager instead of storing them in
+plain text:
+
+```ini
+[github.com]
+token = !rbw get github-token
+
+[gitlab.com]
+token = !pass show forge/gitlab
+
+[myhostedgitlab.example.com]
+token = !rbw get --raw myhostedgitlab | jq -r '.fields | map(select(.name == "token"))[0].value'
+```
+
+`forge auth login` sets this up interactively (Ctrl+E at the token prompt).
+`forge auth status` shows the command source instead of the resolved value.
 
 `.forge` in the repo root is for per-project settings, committed to the repo, no tokens:
 
