@@ -91,6 +91,17 @@ token = !pass show forge/gitlab
 token = !rbw get --raw myhostedgitlab | jq -r '.fields | map(select(.name == "token"))[0].value'
 ```
 
+The variable `FORGE_DOMAIN` is set to the domain name when the command runs,
+so a single command can serve multiple domains:
+
+```ini
+[github.com]
+token = !pass show forge/$FORGE_DOMAIN
+
+[myhostedgitlab.example.com]
+token = !pass show forge/$FORGE_DOMAIN
+```
+
 `forge auth login` sets this up interactively (Ctrl+E at the token prompt).
 `forge auth status` shows the command source instead of the resolved value.
 

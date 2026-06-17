@@ -98,12 +98,15 @@ func parseGitProtocol(v string) (string, error) {
 
 // execValue runs cmd via sh -c and returns its trimmed stdout.
 // Shell features (pipes, quotes, substitutions) are supported.
-func execValue(cmd string) (string, error) {
+// FORGE_DOMAIN is set to domain in the command environment.
+func execValue(cmd, domain string) (string, error) {
 	cmd = strings.TrimSpace(cmd)
 	if cmd == "" {
 		return "", fmt.Errorf("empty command")
 	}
-	out, err := exec.Command("sh", "-c", cmd).Output()
+	c := exec.Command("sh", "-c", cmd)
+	c.Env = append(os.Environ(), "FORGE_DOMAIN="+domain)
+	out, err := c.Output()
 	if err != nil {
 		return "", fmt.Errorf("%q: %w", cmd, err)
 	}
@@ -193,7 +196,7 @@ func loadFile(cfg *Config, path string, allowTokens bool) error {
 		if allowTokens {
 			if v, ok := kv["token"]; ok {
 				if strings.HasPrefix(v, "!") {
-					resolved, err := execValue(v[1:])
+					resolved, err := execValue(v[1:], name)
 					if err != nil {
 						return fmt.Errorf("%s: [%s] token command: %w", path, name, err)
 					}

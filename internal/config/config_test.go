@@ -504,6 +504,24 @@ token = !echo mytoken
 	}
 }
 
+func TestLoadFileTokenCommandForgeDomain(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config")
+	_ = os.WriteFile(path, []byte(`[gitlab.example.com]
+token = !echo $FORGE_DOMAIN
+`), 0600)
+
+	cfg := &Config{Domains: make(map[string]DomainSection)}
+	if err := loadFile(cfg, path, true); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	ds := cfg.Domains["gitlab.example.com"]
+	if ds.Token != "gitlab.example.com" {
+		t.Errorf("expected FORGE_DOMAIN=gitlab.example.com, got %q", ds.Token)
+	}
+}
+
 func TestLoadFileTokenCommandFails(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config")
