@@ -42,11 +42,14 @@ Store tokens with `forge auth login`:
 forge auth login                          # interactive: asks domain + token
 forge auth login --domain github.com --token ghp_abc123
 forge auth login --domain gitea.example.com --token abc123 --type gitea
+forge auth login --domain github.com --token-cmd 'rbw get github-token'
 ```
 
+`--token-cmd` stores a shell command instead of a literal token; the command
+is run each time the token is needed (see [token commands](#token-commands) below).
+
 When prompted for a token interactively, press **Ctrl+E** as the first key
-to enter a command instead. The command's output will be used as the token
-at runtime:
+to enter a command instead:
 
 ```
 Token for github.com (Ctrl+E first for command): 
@@ -74,6 +77,8 @@ token = ghp_abc123
 type = gitea
 token = abc123
 ```
+
+### Token commands
 
 Token values can be replaced with a shell command prefixed by `!` (Unix only).
 The command is executed via `sh -c` each time forge needs the token and its

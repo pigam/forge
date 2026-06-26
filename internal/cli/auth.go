@@ -23,12 +23,14 @@ func init() {
 	rootCmd.AddCommand(authCmd)
 	authCmd.AddCommand(authLoginCmd())
 	authCmd.AddCommand(authStatusCmd())
+	authCmd.AddCommand(authTokenCmd())
 }
 
 func authLoginCmd() *cobra.Command {
 	var (
 		domain    string
 		token     string
+		tokenCmd  string
 		forgeType string
 	)
 
@@ -51,9 +53,12 @@ func authLoginCmd() *cobra.Command {
 				}
 			}
 
-			if token == "" {
+			switch {
+			case tokenCmd != "":
+				token = "!" + tokenCmd
+			case token == "":
 				if !interactive {
-					return fmt.Errorf("--token is required in non-interactive mode")
+					return fmt.Errorf("--token or --token-cmd is required in non-interactive mode")
 				}
 				var err error
 				token, err = readTokenInteractive(domain)
@@ -76,7 +81,11 @@ func authLoginCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&domain, "domain", "", "Forge domain (e.g. github.com, gitea.example.com)")
 	cmd.Flags().StringVar(&token, "token", "", "API token")
+	cmd.Flags().StringVar(&tokenCmd, "token-cmd", "", "Shell command whose stdout is used as the token (Unix only)")
 	cmd.Flags().StringVar(&forgeType, "type", "", "Forge type: github, gitlab, gitea, forgejo, bitbucket")
+	cmd.MarkFlagsMutuallyExclusive("token", "token-cmd")
+	return cmd
+}
 	return cmd
 }
 
@@ -124,6 +133,7 @@ func readRawToken(fd int, oldState *term.State, r io.Reader) (string, error) {
 		ctrlD     = 0x04
 		enter     = 0x0D
 		newline   = 0x0A
+		esc       = 0x1B
 		backspace = 0x7F
 		del       = 0x08
 		printable = 0x20
@@ -148,6 +158,16 @@ func readRawToken(fd int, oldState *term.State, r io.Reader) (string, error) {
 		case backspace, del:
 			if len(buf) > 0 {
 				buf = buf[:len(buf)-1]
+			}
+		case esc:
+			// Consume the rest of the escape sequence (e.g. arrow keys: \x1b[D).
+			for {
+				if _, err := r.Read(b); err != nil {
+					return "", err
+				}
+				if b[0] >= 'A' && b[0] <= '~' {
+					break
+				}
 			}
 		default:
 			if b[0] >= printable {

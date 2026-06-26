@@ -95,6 +95,51 @@ func TestAuthLoginNonInteractive(t *testing.T) {
 	}
 }
 
+func TestAuthLoginTokenCmd(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	config.ResetCache()
+	defer config.ResetCache()
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetArgs([]string{
+		"auth", "login",
+		"--domain", "github.com",
+		"--token-cmd", "rbw get github-token",
+	})
+
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, "forge", "config"))
+	if err != nil {
+		t.Fatalf("reading config: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "token = !rbw get github-token") {
+		t.Errorf("expected token command in config, got:\n%s", content)
+	}
+}
+
+func TestAuthLoginTokenAndTokenCmdMutuallyExclusive(t *testing.T) {
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetArgs([]string{
+		"auth", "login",
+		"--domain", "github.com",
+		"--token", "ghp_abc",
+		"--token-cmd", "rbw get github-token",
+	})
+
+	if err := rootCmd.Execute(); err == nil {
+		t.Fatal("expected error when both --token and --token-cmd are set")
+	}
+}
+
 func TestAuthStatus(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
