@@ -85,8 +85,6 @@ func authLoginCmd() *cobra.Command {
 	cmd.MarkFlagsMutuallyExclusive("token", "token-cmd")
 	return cmd
 }
-	return cmd
-}
 
 // readTokenInteractive prompts for a token in raw mode.
 // Pressing Ctrl+E as the first key switches to command mode (stored as "!cmd").
