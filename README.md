@@ -80,20 +80,20 @@ token = abc123
 
 ### Token commands
 
-Token values can be replaced with a shell command prefixed by `!` (Unix only).
+Instead of a literal `token`, use `token-cmd` to specify a shell command (Unix only).
 The command is executed via `sh -c` each time forge needs the token and its
 stdout is used as the value. This lets you fetch secrets from a password manager
 instead of storing them in plain text:
 
 ```ini
 [github.com]
-token = !rbw get github-token
+token-cmd = rbw get github-token
 
 [gitlab.com]
-token = !pass show forge/gitlab
+token-cmd = pass show forge/gitlab
 
 [myhostedgitlab.example.com]
-token = !rbw get --raw myhostedgitlab | jq -r '.fields | map(select(.name == "token"))[0].value'
+token-cmd = rbw get --raw myhostedgitlab | jq -r '.fields | map(select(.name == "token"))[0].value'
 ```
 
 The variable `FORGE_DOMAIN` is set to the domain name when the command runs,
@@ -101,10 +101,10 @@ so a single command can serve multiple domains:
 
 ```ini
 [github.com]
-token = !pass show forge/$FORGE_DOMAIN
+token-cmd = pass show forge/$FORGE_DOMAIN
 
 [myhostedgitlab.example.com]
-token = !pass show forge/$FORGE_DOMAIN
+token-cmd = pass show forge/$FORGE_DOMAIN
 ```
 
 `forge auth login` sets this up interactively (Ctrl+E at the token prompt).

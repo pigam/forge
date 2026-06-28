@@ -32,7 +32,7 @@ type DefaultSection struct {
 type DomainSection struct {
 	Type        string // github, gitlab, gitea, forgejo, bitbucket
 	Token       string // resolved token value; only from user config, never .forge
-	TokenExec   string // non-empty when token came from a "!cmd" reference (stores the raw value)
+	TokenExec   string // non-empty when token is retrieved via a shell command (from "token-cmd" config key)
 	SSHHost     string // alternate host for git-over-ssh; the section name remains the API host
 	GitProtocol string // https or ssh; overrides default
 }
@@ -208,12 +208,16 @@ func loadFile(cfg *Config, path string, allowTokens bool) error {
 			}
 		}
 		if allowTokens {
-			if v, ok := kv["token"]; ok {
-				if strings.HasPrefix(v, "!") {
-					ds.TokenExec = v[1:]
-				} else {
-					ds.Token = v
-				}
+			_, hasToken := kv["token"]
+			_, hasTokenCmd := kv["token-cmd"]
+			if hasToken && hasTokenCmd {
+				return fmt.Errorf("%s: [%s] token and token-cmd are mutually exclusive", path, name)
+			}
+			if hasToken {
+				ds.Token = kv["token"]
+			}
+			if hasTokenCmd {
+				ds.TokenExec = kv["token-cmd"]
 			}
 		}
 		cfg.Domains[name] = ds
@@ -303,7 +307,7 @@ func findProjectConfig(dir string) string {
 // SetDomain updates or adds a domain section in the user config file.
 // Creates the config directory if needed. Sets file permissions to 0600
 // since the file may contain tokens.
-func SetDomain(domain, token, forgeType string) error {
+func SetDomain(domain, token, tokenCmd, forgeType string) error {
 	path := UserConfigPath()
 	if path == "" {
 		return fmt.Errorf("cannot determine config path")
@@ -328,6 +332,11 @@ func SetDomain(domain, token, forgeType string) error {
 	}
 	if token != "" {
 		sections[domain]["token"] = token
+		delete(sections[domain], "token-cmd")
+	}
+	if tokenCmd != "" {
+		sections[domain]["token-cmd"] = tokenCmd
+		delete(sections[domain], "token")
 	}
 	if forgeType != "" {
 		sections[domain]["type"] = forgeType

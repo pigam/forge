@@ -350,7 +350,7 @@ func TestSetDomain(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
-	err := SetDomain("gitea.example.com", "tok123", "gitea")
+	err := SetDomain("gitea.example.com", "tok123", "", "gitea")
 	if err != nil {
 		t.Fatalf("SetDomain: %v", err)
 	}
@@ -406,7 +406,7 @@ func TestSetDomainTightensExistingPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := SetDomain("github.com", "ghp_secret", ""); err != nil {
+	if err := SetDomain("github.com", "ghp_secret", "", ""); err != nil {
 		t.Fatalf("SetDomain: %v", err)
 	}
 
@@ -434,7 +434,7 @@ type = gitlab
 `), 0600)
 
 	// Add a new domain; existing entries should survive.
-	err := SetDomain("codeberg.org", "tok_new", "gitea")
+	err := SetDomain("codeberg.org", "tok_new", "", "gitea")
 	if err != nil {
 		t.Fatalf("SetDomain: %v", err)
 	}
@@ -468,7 +468,7 @@ token = old_token
 `), 0600)
 
 	// Update
-	err := SetDomain("github.com", "new_token", "")
+	err := SetDomain("github.com", "new_token", "", "")
 	if err != nil {
 		t.Fatalf("SetDomain: %v", err)
 	}
@@ -487,7 +487,7 @@ func TestLoadFileTokenCommand(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config")
 	_ = os.WriteFile(path, []byte(`[github.com]
-token = !echo mytoken
+token-cmd = echo mytoken
 `), 0600)
 
 	cfg := &Config{Domains: make(map[string]DomainSection)}
@@ -512,11 +512,29 @@ token = !echo mytoken
 	}
 }
 
+func TestLoadFileTokenAndTokenCmdMutuallyExclusive(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config")
+	_ = os.WriteFile(path, []byte(`[github.com]
+token = ghp_abc
+token-cmd = rbw get github-token
+`), 0600)
+
+	cfg := &Config{Domains: make(map[string]DomainSection)}
+	err := loadFile(cfg, path, true)
+	if err == nil {
+		t.Fatal("expected error when both token and token-cmd are set, got nil")
+	}
+	if !strings.Contains(err.Error(), "token") || !strings.Contains(err.Error(), "token-cmd") {
+		t.Errorf("expected error to mention both keys, got: %v", err)
+	}
+}
+
 func TestLoadFileTokenCommandForgeDomain(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config")
 	_ = os.WriteFile(path, []byte(`[gitlab.example.com]
-token = !echo $FORGE_DOMAIN
+token-cmd = echo $FORGE_DOMAIN
 `), 0600)
 
 	cfg := &Config{Domains: make(map[string]DomainSection)}
@@ -537,7 +555,7 @@ func TestLoadFileTokenCommandFails(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config")
 	_ = os.WriteFile(path, []byte(`[github.com]
-token = !false
+token-cmd = false
 `), 0600)
 
 	cfg := &Config{Domains: make(map[string]DomainSection)}
@@ -555,7 +573,7 @@ func TestLoadFileTokenCommandMissingBinary(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config")
 	_ = os.WriteFile(path, []byte(`[github.com]
-token = !no-such-binary-xyz
+token-cmd = no-such-binary-xyz
 `), 0600)
 
 	cfg := &Config{Domains: make(map[string]DomainSection)}
@@ -573,7 +591,7 @@ func TestLoadFileTokenCommandNotExecutedInProjectConfig(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".forge")
 	_ = os.WriteFile(path, []byte(`[github.com]
-token = !echo secret
+token-cmd = echo secret
 `), 0644)
 
 	cfg := &Config{Domains: make(map[string]DomainSection)}

@@ -54,26 +54,30 @@ func authLoginCmd() *cobra.Command {
 
 			switch {
 			case tokenCmd != "":
-				token = "!" + tokenCmd
+				// tokenCmd is already set from --token-cmd flag
 			case token == "":
 				if !interactive {
 					return fmt.Errorf("--token or --token-cmd is required in non-interactive mode")
 				}
 				var err error
-				token, err = readTokenInteractive(domain)
+				token, tokenCmd, err = readTokenInteractive(domain)
 				if err != nil {
 					return fmt.Errorf("reading token: %w", err)
 				}
-				if token == "" {
+				if token == "" && tokenCmd == "" {
 					return fmt.Errorf("token cannot be empty")
 				}
 			}
 
-			if err := config.SetDomain(domain, token, forgeType); err != nil {
+			if err := config.SetDomain(domain, token, tokenCmd, forgeType); err != nil {
 				return fmt.Errorf("saving config: %w", err)
 			}
 
-			_, _ = fmt.Fprintf(os.Stderr, "Stored credentials for %s\n", domain)
+			if tokenCmd != "" {
+				_, _ = fmt.Fprintf(os.Stderr, "Stored token command for %s\n", domain)
+			} else {
+				_, _ = fmt.Fprintf(os.Stderr, "Stored credentials for %s\n", domain)
+			}
 			return nil
 		},
 	}
@@ -87,8 +91,9 @@ func authLoginCmd() *cobra.Command {
 }
 
 // readTokenInteractive prompts for a token in raw mode.
-// Pressing Ctrl+E as the first key switches to command mode (stored as "!cmd").
-func readTokenInteractive(domain string) (string, error) {
+// Pressing Ctrl+E as the first key switches to command mode.
+// Exactly one of token or tokenCmd is non-empty on success.
+func readTokenInteractive(domain string) (token, tokenCmd string, err error) {
 	const ctrlE = 0x05
 
 	fd := int(os.Stdin.Fd())
@@ -96,24 +101,26 @@ func readTokenInteractive(domain string) (string, error) {
 
 	oldState, err := term.MakeRaw(fd)
 	if err != nil {
-		return "", fmt.Errorf("setting raw mode: %w", err)
+		return "", "", fmt.Errorf("setting raw mode: %w", err)
 	}
 
 	ch, err := readOneByte(os.Stdin)
 	if err != nil {
 		_ = term.Restore(fd, oldState)
 		_, _ = fmt.Fprintln(os.Stderr)
-		return "", err
+		return "", "", err
 	}
 
 	if ch == ctrlE {
 		_ = term.Restore(fd, oldState)
 		_, _ = fmt.Fprintln(os.Stderr)
-		return readCommandInteractive(domain)
+		cmd, err := readCommandInteractive(domain)
+		return "", cmd, err
 	}
 
 	r := io.MultiReader(bytes.NewReader([]byte{ch}), os.Stdin)
-	return readRawToken(fd, oldState, r)
+	tok, err := readRawToken(fd, oldState, r)
+	return tok, "", err
 }
 
 func readOneByte(r io.Reader) (byte, error) {
@@ -176,7 +183,6 @@ func readRawToken(fd int, oldState *term.State, r io.Reader) (string, error) {
 
 // readCommandInteractive prompts the user to enter a shell command
 // whose output will be used as the token at runtime.
-// Returns the command prefixed with "!" for storage in the config.
 func readCommandInteractive(domain string) (string, error) {
 	_, _ = fmt.Fprintf(os.Stderr, "Command for token (e.g. rbw get %s): ", domain)
 	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
@@ -187,7 +193,7 @@ func readCommandInteractive(domain string) (string, error) {
 	if cmd == "" {
 		return "", fmt.Errorf("command cannot be empty")
 	}
-	return "!" + cmd, nil
+	return cmd, nil
 }
 
 func authStatusCmd() *cobra.Command {

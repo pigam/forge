@@ -138,7 +138,7 @@ func TestAuthLoginTokenCmd(t *testing.T) {
 		t.Fatalf("reading config: %v", err)
 	}
 	content := string(data)
-	if !strings.Contains(content, "token = !rbw get github-token") {
+	if !strings.Contains(content, "token-cmd = rbw get github-token") {
 		t.Errorf("expected token command in config, got:\n%s", content)
 	}
 }
@@ -203,7 +203,7 @@ func TestAuthStatusWithTokenCmd(t *testing.T) {
 	_ = os.MkdirAll(cfgDir, 0700)
 	_ = os.WriteFile(filepath.Join(cfgDir, "config"), []byte(`[gitlab.example.com]
 type = gitlab
-token = !echo secret
+token-cmd = echo secret
 `), 0600)
 
 	var buf bytes.Buffer
@@ -247,8 +247,8 @@ func TestReadCommandInteractive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result != "!rbw get github-token" {
-		t.Errorf("expected %q, got %q", "!rbw get github-token", result)
+	if result != "rbw get github-token" {
+		t.Errorf("expected %q, got %q", "rbw get github-token", result)
 	}
 }
 
