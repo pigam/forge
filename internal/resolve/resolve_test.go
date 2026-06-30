@@ -2,6 +2,7 @@ package resolve
 
 import (
 	"context"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -130,6 +131,48 @@ func TestTokenForDomain(t *testing.T) {
 	}
 	t.Setenv("FORGEJO_TOKEN", "")
 	t.Setenv("GITEA_TOKEN", "")
+}
+
+func TestTokenForDomainLogsFailingCommand(t *testing.T) {
+	clearTokenEnv(t)
+
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	config.ResetCache()
+	defer config.ResetCache()
+
+	cfgDir := filepath.Join(dir, "forge")
+	_ = os.MkdirAll(cfgDir, 0700)
+	_ = os.WriteFile(filepath.Join(cfgDir, "config"), []byte(`[example.com]
+token-cmd = false
+`), 0600)
+
+	// Redirect os.Stderr to capture the log line.
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	origStderr := os.Stderr
+	os.Stderr = w
+
+	got := TokenForDomain("example.com")
+
+	_ = w.Close()
+	os.Stderr = origStderr
+
+	out, _ := io.ReadAll(r)
+	_ = r.Close()
+
+	if got != "" {
+		t.Errorf("expected empty token on command failure, got %q", got)
+	}
+	logged := string(out)
+	if !strings.Contains(logged, "example.com") {
+		t.Errorf("expected domain in error log, got: %s", logged)
+	}
+	if !strings.Contains(logged, "failed") {
+		t.Errorf("expected \"failed\" in error log, got: %s", logged)
+	}
 }
 
 func TestTokenForDomainEnvSpecificOverridesFallback(t *testing.T) {
