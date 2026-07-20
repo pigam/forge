@@ -11,14 +11,12 @@
     {
       packages = forEachSystem (pkgs:
         let
-          mkForge = { version, rev, hash, vendorHash }:
+          mkForge = { owner ? "git-pkgs", repo ? "forge", version, rev, hash, vendorHash }:
             pkgs.buildGoModule {
               pname = "forge";
               inherit version vendorHash;
               src = pkgs.fetchFromGitHub {
-                owner = "git-pkgs";
-                repo = "forge";
-                inherit rev hash;
+                inherit owner repo rev hash;
               };
 
               go = pkgs.go_1_26 or pkgs.go;
@@ -56,6 +54,14 @@
             version = "0.6.0-unstable-2026-07-20";
             rev = "b3eb7489772377d24e9687a95f0d5bfdd5027d2d";
             hash = "sha256-ztb2KyDGs+Lkt6gvc1BRTGeSlM8HZq0zlJAjrBZMsiw=";
+            vendorHash = "sha256-nG/p5oJI5oJP82z0GvEc+qBTS/5X5lokk2WRUkmwvBk=";
+          };
+
+          api-base-url = mkForge {
+            owner = "pigam";
+            version = "0.6.0-api-base-url-2026-07-20";
+            rev = "api-base-url";
+            hash = "sha256-R4Q1gEtZHxrJJEHRTqhlVPsJcT0Cw7X7yYOmqfORbyo=";
             vendorHash = "sha256-nG/p5oJI5oJP82z0GvEc+qBTS/5X5lokk2WRUkmwvBk=";
           };
         });
