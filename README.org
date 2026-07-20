@@ -14,8 +14,8 @@ This branch contains only the Nix packaging for
 Use this packaging branch directly from GitHub:
 
 #+begin_src sh
-nix build github:pigam/forge/nix
-nix run github:pigam/forge/nix -- --help
+nix build github:pigam/forge?ref=nix
+nix run github:pigam/forge?ref=nix -- --help
 #+end_src
 
 Build the default package:
@@ -51,7 +51,7 @@ nix profile install .#default
 Install this branch directly from GitHub:
 
 #+begin_src sh
-nix profile install github:pigam/forge/nix
+nix profile install github:pigam/forge?ref=nix
 #+end_src
 
 * Referencing This Branch From A Flake
@@ -60,7 +60,7 @@ Add this branch as an input:
 
 #+begin_src nix
 {
-  inputs.forge.url = "github:pigam/forge/nix";
+  inputs.forge.url = "github:pigam/forge?ref=nix";
 
   outputs = { self, nixpkgs, forge, ... }:
     let
