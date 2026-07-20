@@ -43,6 +43,15 @@ nix profile install .#default
 
 * Updating =latest=
 
+Make sure the =upstream= remote exists:
+
+#+begin_src sh
+git remote -v
+git remote add upstream https://github.com/git-pkgs/forge.git
+#+end_src
+
+Only run =git remote add upstream ...= if =upstream= is missing.
+
 Fetch upstream and choose the new =upstream/main= commit:
 
 #+begin_src sh
