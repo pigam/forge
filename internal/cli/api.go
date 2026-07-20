@@ -32,19 +32,7 @@ var apiCmd = &cobra.Command{
 		endpoint = strings.ReplaceAll(endpoint, "{owner}", owner)
 		endpoint = strings.ReplaceAll(endpoint, "{repo}", repoName)
 
-		// Build full URL
-		var baseURL string
-		switch {
-		case strings.Contains(domain, "github"):
-			baseURL = "https://api." + domain
-		case strings.Contains(domain, "gitlab"):
-			baseURL = "https://" + domain + "/api/v4"
-		case strings.Contains(domain, "bitbucket"):
-			baseURL = "https://api.bitbucket.org/2.0"
-		default:
-			baseURL = "https://" + domain + "/api/v1"
-		}
-
+		baseURL := apiBaseURL(domain, flagForgeType)
 		url := baseURL + "/" + strings.TrimLeft(endpoint, "/")
 
 		var body io.Reader
@@ -127,6 +115,21 @@ var apiCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+func apiBaseURL(domain, forgeType string) string {
+	_ = forgeType
+
+	switch {
+	case strings.Contains(domain, "github"):
+		return "https://api." + domain
+	case strings.Contains(domain, "gitlab"):
+		return "https://" + domain + "/api/v4"
+	case strings.Contains(domain, "bitbucket"):
+		return "https://api.bitbucket.org/2.0"
+	default:
+		return "https://" + domain + "/api/v1"
+	}
 }
 
 var (
