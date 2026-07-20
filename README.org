@@ -1,0 +1,122 @@
+#+title: Forge Nix Flake
+
+This branch contains only the Nix packaging for
+[[https://github.com/git-pkgs/forge][git-pkgs/forge]].
+
+* Packages
+
+- =.#default= :: Alias for =.#latest=.
+- =.#latest= :: The latest known commit from upstream =main=.
+- =.#v0_6_0= :: The upstream =v0.6.0= release.
+
+* Usage
+
+Build the default package:
+
+#+begin_src sh
+nix build
+#+end_src
+
+Build the latest upstream commit explicitly:
+
+#+begin_src sh
+nix build .#latest
+#+end_src
+
+Build a pinned release:
+
+#+begin_src sh
+nix build .#v0_6_0
+#+end_src
+
+Run the CLI without installing it:
+
+#+begin_src sh
+nix run .#latest -- --help
+#+end_src
+
+Install the default package into your profile:
+
+#+begin_src sh
+nix profile install .#default
+#+end_src
+
+* Updating =latest=
+
+Fetch upstream and choose the new =upstream/main= commit:
+
+#+begin_src sh
+git fetch upstream
+git rev-parse upstream/main
+#+end_src
+
+Update the =latest= package in =flake.nix=:
+
+- Set =rev= to the new commit SHA.
+- Update =version= to =<latest-release>-unstable-YYYY-MM-DD=.
+- Temporarily set =hash = pkgs.lib.fakeHash;= and run:
+
+#+begin_src sh
+nix build .#latest
+#+end_src
+
+Copy the =got:= source hash from the Nix error into =hash=.
+
+Then temporarily set =vendorHash = pkgs.lib.fakeHash;= and run:
+
+#+begin_src sh
+nix build .#latest
+#+end_src
+
+Copy the =got:= Go modules hash into =vendorHash=.
+
+Run the final check:
+
+#+begin_src sh
+nix build .#latest
+#+end_src
+
+Commit the change:
+
+#+begin_src sh
+git add flake.nix
+git commit -m "nix: update latest forge"
+#+end_src
+
+* Adding A New Upstream Release
+
+When upstream publishes a new tag, add a new named package and update
+=latest= only if that tag is also the latest upstream commit you want as the
+default.
+
+For a tag such as =v0.7.0=:
+
+1. Add a new package attribute named =v0_7_0=.
+2. Set =version = "0.7.0";=.
+3. Set =rev = "v0.7.0";=.
+4. Use =pkgs.lib.fakeHash= to obtain the source =hash=.
+5. Use =pkgs.lib.fakeHash= to obtain =vendorHash=.
+6. Verify the package:
+
+#+begin_src sh
+nix build .#v0_7_0
+#+end_src
+
+If the new release should become the default, update =latest= to point to the
+same tag or to the desired newer upstream commit. Because =default= aliases
+=latest=, no separate =default= hash update is needed.
+
+Commit one upstream release per commit:
+
+#+begin_src sh
+git add flake.nix flake.lock
+git commit -m "nix: package forge v0.7.0"
+#+end_src
+
+If =latest= is updated separately from the release package, use a separate
+commit:
+
+#+begin_src sh
+git add flake.nix
+git commit -m "nix: update latest forge"
+#+end_src

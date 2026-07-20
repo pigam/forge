@@ -42,15 +42,17 @@
               };
             };
         in
-        {
-          default = mkForge {
+        rec {
+          default = latest;
+
+          v0_6_0 = mkForge {
             version = "0.6.0";
             rev = "v0.6.0";
             hash = "sha256-kVKDHcrtXbOqqZoiKb/SxOKbTy2A7oHomlUImkcnxmA=";
             vendorHash = "sha256-sduEepxhOCLk7/YMJbIwtt78Bo9UJ5olb8po7drxPZw=";
           };
 
-          unstable = mkForge {
+          latest = mkForge {
             version = "0.6.0-unstable-2026-07-20";
             rev = "b3eb7489772377d24e9687a95f0d5bfdd5027d2d";
             hash = "sha256-ztb2KyDGs+Lkt6gvc1BRTGeSlM8HZq0zlJAjrBZMsiw=";
