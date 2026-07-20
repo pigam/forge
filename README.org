@@ -11,6 +11,13 @@ This branch contains only the Nix packaging for
 
 * Usage
 
+Use this packaging branch directly from GitHub:
+
+#+begin_src sh
+nix build github:pigam/forge/nix
+nix run github:pigam/forge/nix -- --help
+#+end_src
+
 Build the default package:
 
 #+begin_src sh
@@ -40,6 +47,34 @@ Install the default package into your profile:
 #+begin_src sh
 nix profile install .#default
 #+end_src
+
+Install this branch directly from GitHub:
+
+#+begin_src sh
+nix profile install github:pigam/forge/nix
+#+end_src
+
+* Referencing This Branch From A Flake
+
+Add this branch as an input:
+
+#+begin_src nix
+{
+  inputs.forge.url = "github:pigam/forge/nix";
+
+  outputs = { self, nixpkgs, forge, ... }:
+    let
+      system = "x86_64-linux";
+    in
+    {
+      packages.${system}.default = forge.packages.${system}.default;
+    };
+}
+#+end_src
+
+Use =forge.packages.${system}.latest= explicitly if you do not want to rely on
+the =default= alias. Use =forge.packages.${system}.v0_6_0= for the pinned
+=v0.6.0= release.
 
 * Updating =latest=
 
