@@ -59,9 +59,9 @@
 
           api-base-url = mkForge {
             owner = "pigam";
-            version = "0.6.0-api-base-url-2026-07-20";
+            version = "0.6.0-api-base-url-2026-07-23";
             rev = "api-base-url";
-            hash = "sha256-R4Q1gEtZHxrJJEHRTqhlVPsJcT0Cw7X7yYOmqfORbyo=";
+            hash = "sha256-kP30aZ1NzhfiU2kaCUAOzka81NlMfyW0ZfAxrtMjlkc=";
             vendorHash = "sha256-nG/p5oJI5oJP82z0GvEc+qBTS/5X5lokk2WRUkmwvBk=";
           };
         });
